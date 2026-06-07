@@ -67,7 +67,7 @@ function App() {
       const payload = {
         answers: questions.map((item) => ({
           questionId: item.id,
-          value: answers[item.id],
+          value: (answers[item.id] || '').trim(),
         })),
       }
 
