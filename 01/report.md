@@ -119,3 +119,72 @@
 	- альтернативные провайдеры `openai` и `anthropic` оставлены как шаблоны для ручного переключения.
 
 Дальше журнал будет пополняться после каждого значимого шага по реализации агента.
+
+---
+
+# Отчет по ДЗ: Простой MCP-сервер
+
+## 1. Принципы MCP
+
+**Как IDE/агент подключается к MCP-серверу.**
+VS Code Copilot Agent использует конфигурацию из `.vscode/mcp.json`, где прописан способ запуска сервера и транспорт. При первом обращении агент запускает сервер как дочерний процесс и общается с ним через **stdio** (стандартный ввод/вывод). Агент запрашивает список доступных инструментов (`tools/list`), получает их схемы и описания, после чего может вызывать нужный инструмент через `tools/call` с JSON-параметрами. Весь обмен идёт по [протоколу MCP](https://modelcontextprotocol.io/).
+
+**Что считается «tool» в нашем сервере.**
+Tool — это именованная функция с описанием и JSON Schema входных параметров, которую агент может вызвать явно через `tools/call`. Сервер предоставляет 3 инструмента поверх Go backend (`http://localhost:8080`):
+- `get_questions` — получить список вопросов анкеты (`GET /questions`);
+- `submit_answers` — отправить ответы (`POST /answers`);
+- `get_status` — проверить доступность backend (healthcheck).
+
+Результат возвращается как структурированный объект (`structuredContent`). Секреты и значения ответов не логируются — в stderr пишется только имя tool, статус и `count`.
+
+## 2. Реализация MCP-сервера
+
+Транспорт: **stdio**. Сервер объявляет 3 инструмента, вызывающих Go backend (`http://localhost:8080`). Результат каждого инструмента возвращается как структурированный объект через `structuredContent` (текстовый блок оставлен только как fallback для клиентов без поддержки structured output).
+
+### Инструменты
+
+| Инструмент | Описание | Файл |
+|---|---|---|
+| `get_questions` | Получить список вопросов анкеты (`GET /questions`) | [mcp-server/src/tools/getQuestions.ts](mcp-server/src/tools/getQuestions.ts) |
+| `submit_answers` | Отправить ответы на вопросы (`POST /answers`) | [mcp-server/src/tools/submitAnswers.ts](mcp-server/src/tools/submitAnswers.ts) |
+| `get_status` | Проверить доступность Go сервера (healthcheck) | [mcp-server/src/tools/getStatus.ts](mcp-server/src/tools/getStatus.ts) |
+
+### Логи
+
+Каждый tool пишет в `stderr` строку формата:
+```
+[MCP] tool=<name> params=<sanitized> status=<pending|success|error>
+```
+
+### Ссылки на код
+
+- Регистрация сервера и инструментов: [mcp-server/src/index.ts](mcp-server/src/index.ts) L1–L37
+- `get_questions`: [mcp-server/src/tools/getQuestions.ts](mcp-server/src/tools/getQuestions.ts) L1–L20
+- `submit_answers`: [mcp-server/src/tools/submitAnswers.ts](mcp-server/src/tools/submitAnswers.ts) L1–L38
+- `get_status`: [mcp-server/src/tools/getStatus.ts](mcp-server/src/tools/getStatus.ts) L1–L29
+
+### Доказательства вызовов из IDE
+
+Воспроизводимые сценарии тестирования и фактические вызовы MCP-tools из VS Code Copilot Agent (5 сценариев, все подтверждены реальными вызовами): [mcp-server/test-runs.md](mcp-server/test-runs.md).
+
+## 3. Использованные промпты
+
+1. Скаффолдинг проекта (`prompts/06-mcp-setup.md`)
+2. Реализация инструментов (`prompts/07-mcp-tools.md`)
+
+## 4. Журнал работ
+
+### 2026-06-23
+
+1. Создан каркас MCP-сервера в `01/mcp-server/`:
+   - `package.json` — зависимости: `@modelcontextprotocol/sdk`, `zod`, `dotenv`
+   - `tsconfig.json` — ESM, NodeNext, ES2022
+   - `.env.example` — переменная `API_BASE_URL`
+   - `README.md` — структура проекта, инструкция запуска, интеграция с VS Code
+   - `src/index.ts` — точка входа (заглушка)
+2. Реализованы 3 MCP-инструмента для работы с Go backend:
+   - `src/tools/getQuestions.ts` — `GET /questions`, возвращает `{ status, questions[] }`
+   - `src/tools/submitAnswers.ts` — `POST /answers`, принимает `answers[{questionId, value}]`, возвращает `{ status, result }`
+   - `src/tools/getStatus.ts` — healthcheck с таймаутом 3с, возвращает `{ status, reachable, url }`
+3. Подключены tools в `src/index.ts`, сервер стартует через stdio-транспорт.
+4. Проверена компиляция: `npm install && npm run build` — ошибок нет.
