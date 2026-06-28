@@ -10,6 +10,17 @@ import { apiTools } from "./tools/apiTools.js";
 
 type Provider = "openai" | "anthropic" | "ollama";
 
+type AgentOutput = {
+	status: "success" | "error";
+	action: string;
+	data: unknown;
+	errors: string[];
+};
+
+function printAgentOutput(output: AgentOutput): void {
+	console.log(JSON.stringify(output));
+}
+
 function readCliInput(): string {
 	return process.argv.slice(2).join(" ").trim();
 }
@@ -68,6 +79,12 @@ async function run(): Promise<void> {
 	const userInput = readCliInput();
 
 	if (!userInput) {
+		printAgentOutput({
+			status: "error",
+			action: "validateInput",
+			data: null,
+			errors: ["User request is empty"],
+		});
 		printUsage();
 		process.exitCode = 1;
 		return;
@@ -99,6 +116,11 @@ async function run(): Promise<void> {
 
 run().catch((error) => {
 	const message = error instanceof Error ? error.message : String(error);
-	console.error(`Agent failed: ${message}`);
+	printAgentOutput({
+		status: "error",
+		action: "agentExecution",
+		data: null,
+		errors: [message],
+	});
 	process.exitCode = 1;
 });
