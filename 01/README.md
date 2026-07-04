@@ -50,3 +50,13 @@ curl -X POST http://localhost:8080/answers \
   -H "Content-Type: application/json" \
   -d '{"answers":[{"questionId":1,"value":"Timur"},{"questionId":2,"value":"25"}]}'
 ```
+
+## AI-инструкции в репозитории
+
+- Основные инструкции Copilot: `.github/copilot-instructions.md`
+- Контекст проекта: `docs/ai/CONTEXT.md`
+- Архитектура: `docs/ai/ARCHITECTURE.md`
+- Стиль и проверки: `docs/ai/STYLEGUIDE.md`
+- Типовые задачи и промпты: `docs/ai/TASKS.md`
+- Definition of Done: `docs/ai/DEFINITION_OF_DONE.md`
+- Отчет по ДЗ: `report.md`
