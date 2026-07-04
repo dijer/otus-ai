@@ -13,7 +13,8 @@ pnpm-debug.log*
 Thumbs.db
 
 .idea/
-.vscode/
+.vscode/*
+!.vscode/mcp.json
 
 .env
 .env.*
